@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drive Music Player</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #181818; color: white; }
+        h1 { color: #1DB954; }
+        .song-list { list-style: none; padding: 0; }
+        .song-list li { padding: 10px; cursor: pointer; border-bottom: 1px solid gray; }
+        .song-list li:hover { background: #282828; }
+        audio { width: 100%; margin-top: 20px; }
+        #folderInput { padding: 10px; width: 80%; margin: 10px; }
+        #submitBtn { padding: 10px; cursor: pointer; background: #1DB954; border: none; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Google Drive Music Player</h1>
+    
+    <div id="folderInputContainer">
+        <p>Enter your Google Drive folder link:</p>
+        <input type="text" id="folderInput" placeholder="Paste Google Drive folder link here...">
+        <button id="submitBtn">Save Link</button>
+    </div>
+
+    <ul class="song-list"></ul>
+    <audio id="audioPlayer" controls></audio>
+
+    <script>
+        // Check if a Google Drive folder link is stored in cookies
+        function getCookie(name) {
+            let cookies = document.cookie.split("; ");
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].split("=");
+                if (cookie[0] === name) {
+                    return decodeURIComponent(cookie[1]);
+                }
+            }
+            return null;
+        }
+
+        async function saveFolderLink() {
+            let folderInput = document.getElementById("folderInput").value.trim();
+            if (!folderInput) {
+                alert("Please enter a Google Drive folder link!");
+                return;
+            }
+
+            let response = await fetch("/set_folder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ folder_link: folderInput })
+            });
+
+            if (response.ok) {
+                document.cookie = `drive_folder=${encodeURIComponent(folderInput)}; path=/; max-age=86400`; // Store for 1 day
+                location.reload(); // Reload page to use new link
+            } else {
+                alert("Error saving folder link!");
+            }
+        }
+
+        async function loadSongs() {
+            let folderLink = getCookie("drive_folder");
+            let inputContainer = document.getElementById("folderInputContainer");
+            let songList = document.querySelector(".song-list");
+            let audioPlayer = document.getElementById("audioPlayer");
+
+            if (folderLink) {
+                inputContainer.style.display = "none"; // Hide input form if link exists
+                
+                let response = await fetch("/songs");
+                let songs = await response.json();
+                
+                if (songs.error) {
+                    alert(songs.error);
+                    return;
+                }
+
+                songs.forEach(song => {
+                    let li = document.createElement("li");
+                    li.textContent = song.name;
+                    li.onclick = () => {
+                        audioPlayer.src = song.url;
+                        audioPlayer.play();
+                    };
+                    songList.appendChild(li);
+                });
+            }
+        }
+
+        document.getElementById("submitBtn").addEventListener("click", saveFolderLink);
+        window.onload = loadSongs;
+    </script>
+</body>
+</html>
